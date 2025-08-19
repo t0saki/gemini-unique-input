@@ -36,16 +36,11 @@
 
 1.  **环境要求**: 请确保您已安装 Docker 和 Docker Compose。
 2.  **克隆本仓库。**
-3.  **配置 API 密钥**: 服务需要通过环境变量 `GEMINI_API_KEY` 获取您的 Gemini API 密钥。推荐的方式是在项目根目录创建一个 `.env` 文件：
-    ```
-    # .env
-    GEMINI_API_KEY="你的API密钥"
-    ```
-4.  **启动服务**:
+3.  **启动服务**:
     ```bash
     docker-compose up -d
     ```
-代理服务现在将运行在 `http://localhost:8000`。您可以像下面描述的那样发送请求，但无需在 URL 或请求头中包含密钥。
+代理服务现在将运行在 `http://localhost:8000`。您可以像下面描述的那样发送请求。
 
 ### 手动安装
 

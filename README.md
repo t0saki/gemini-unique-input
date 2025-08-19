@@ -36,16 +36,11 @@ The simplest way to run this proxy is with Docker Compose.
 
 1.  **Prerequisites**: Make sure you have Docker and Docker Compose installed.
 2.  **Clone the repository.**
-3.  **Configure your API Key**: The service expects your Gemini API key as an environment variable `GEMINI_API_KEY`. The recommended way is to create a `.env` file in the project root:
-    ```
-    # .env
-    GEMINI_API_KEY="YOUR_API_KEY"
-    ```
-4.  **Start the service**:
+3.  **Start the service**:
     ```bash
     docker-compose up -d
     ```
-The proxy will now be running on `http://localhost:8000`. You can then make requests as shown below, but you don't need to include the key in the URL or headers.
+The proxy will now be running on `http://localhost:8000`. You can then make requests as shown below.
 
 ### Manual Setup
 
