@@ -10,19 +10,24 @@ When making multiple, identical API requests to the Gemini API in quick successi
 
 ## The Solution
 
-This proxy intercepts your requests to the Gemini API and transparently adds a unique, high-precision timestamp to the beginning of your prompt.
+This proxy intercepts your requests to the Gemini API and transparently adds unique content to your prompt. By default, it appends a high-precision timestamp to the end of your prompt, but this behavior is fully configurable.
 
 **Original Prompt:**
 `"What is the capital of France?"`
 
-**Modified Prompt Sent to Gemini:**
-`"(Current time: 2023-10-27 10:30:00.123. This is an automated prefix added by the proxy. Please disregard.)\n\nWhat is the capital of France?"`
+**Modified Prompt Sent to Gemini (default SUFFIX + TIMESTAMP mode):**
+`"What is the capital of France?\n\n(Current time: 2023-10-27 10:30:00.123. This is an automated injection by the proxy. Please disregard.)"`
+
+**Alternative with PREFIX + UUID mode:**
+`"(Random ID: a4b7. This is an automated injection by the proxy. Please disregard.)\n\nWhat is the capital of France?"`
 
 This small modification makes every request unique from the perspective of the Gemini API, effectively bypassing the duplicate request filter and ensuring a consistent response. The added text is designed to be ignored by the model.
 
 ## Features
 
-- **Automatic Prompt Uniqueness**: Injects a timestamp into each request to prevent issues with duplicate prompts.
+- **Configurable Prompt Uniqueness**: Injects either a timestamp or UUID into each request to prevent issues with duplicate prompts.
+- **Flexible Injection Position**: Choose to inject at the beginning (PREFIX) or end (SUFFIX) of your prompt.
+- **Multiple Injection Modes**: Support for timestamp injection (default) or UUID-based uniqueness.
 - **Full API Compatibility**: Mirrors the Gemini API structure. You can use it as a drop-in replacement for the official API endpoint.
 - **Streaming Support**: Fully supports streaming responses for a real-time experience.
 - **Flexible Authentication**: Accepts the API key from either the `Authorization: Bearer <key>` header or the `?key=<key>` query parameter.
@@ -66,10 +71,16 @@ The proxy will now be running on `http://localhost:8000`. You can then make requ
     pip install -r requirements.txt
     ```
 
-4.  (Optional) Create a `.env` file in the same directory to configure the upstream Gemini endpoint. If not provided, it defaults to `https://generativelanguage.googleapis.com`.
+4.  (Optional) Create a `.env` file in the same directory to configure the proxy behavior. If not provided, it defaults to the upstream endpoint `https://generativelanguage.googleapis.com` with SUFFIX injection of TIMESTAMP.
     ```
     # .env
     UPSTREAM_GEMINI_ENDPOINT="https://generativelanguage.googleapis.com"
+    
+    # Injection position: "SUFFIX" (default) or "PREFIX"
+    INJECTION_POSITION=SUFFIX
+    
+    # Injection mode: "TIMESTAMP" (default) or "UUID"
+    INJECTION_MODE=TIMESTAMP
     ```
 
 #### 3. Running the Proxy
@@ -100,4 +111,30 @@ curl http://localhost:8000/v1beta/models/gemini-pro:generateContent?key=YOUR_API
     }'
 ```
 
-The proxy will forward this request to Gemini with the added timestamp and stream the response back to you.
+The proxy will forward this request to Gemini with the added unique content (timestamp or UUID) and stream the response back to you.
+
+## Configuration Options
+
+The proxy supports several environment variables to customize its behavior:
+
+- **`UPSTREAM_GEMINI_ENDPOINT`**: The upstream Gemini API endpoint (default: `https://generativelanguage.googleapis.com`)
+- **`INJECTION_POSITION`**: Where to inject the unique content
+  - `SUFFIX` (default): Append to the end of the prompt
+  - `PREFIX`: Prepend to the beginning of the prompt
+- **`INJECTION_MODE`**: What type of unique content to inject
+  - `TIMESTAMP` (default): High-precision timestamp
+  - `UUID`: 4-character random UUID
+
+### Examples of Different Configurations
+
+**Default (SUFFIX + TIMESTAMP):**
+```
+Original: "Hello, world!"
+Modified: "Hello, world!\n\n(Current time: 2023-10-27 10:30:00.123. This is an automated injection by the proxy. Please disregard.)"
+```
+
+**PREFIX + UUID:**
+```
+Original: "Hello, world!"
+Modified: "(Random ID: a4b7. This is an automated injection by the proxy. Please disregard.)\n\nHello, world!"
+```

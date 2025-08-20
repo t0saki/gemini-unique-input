@@ -7,6 +7,15 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
-    # 如果你还想通过环境变量自定义上游地址，可以在这里添加
+    # --- Optional Configuration ---
     # environment:
-      # - UPSTREAM_GEMINI_ENDPOINT=https://generativelanguage.googleapis.com
+      # Uncomment and set the variables below to change the default behavior.
+            # - UPSTREAM_GEMINI_ENDPOINT=https://generativelanguage.googleapis.com
+
+      # Determines where to inject the text.
+      # Valid values: "SUFFIX" (default), "PREFIX"
+      # - INJECTION_POSITION=SUFFIX
+
+      # Determines what content to inject.
+      # Valid values: "TIMESTAMP" (default), "UUID"
+      # - INJECTION_MODE=UUID

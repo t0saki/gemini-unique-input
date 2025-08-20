@@ -1,6 +1,7 @@
 import os
 import httpx
 import json
+import uuid
 from datetime import datetime
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -9,14 +10,23 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Configuration ---
-UPSTREAM_GEMINI_ENDPOINT = os.getenv("UPSTREAM_GEMINI_ENDPOINT", "https://generativelanguage.googleapis.com")
+UPSTREAM_GEMINI_ENDPOINT = os.getenv(
+    "UPSTREAM_GEMINI_ENDPOINT", "https://generativelanguage.googleapis.com")
+
+# --- New Configuration Options ---
+# Determines where to inject the text: "PREFIX" or "SUFFIX"
+INJECTION_POSITION = os.getenv("INJECTION_POSITION", "SUFFIX").upper()
+# Determines what content to inject: "TIMESTAMP" or "UUID"
+INJECTION_MODE = os.getenv("INJECTION_MODE", "TIMESTAMP").upper()
+
 
 app = FastAPI(
-    title="Gemini API Compatible Proxy",
-    description="A proxy that mirrors Google Gemini's auth, adds a timestamp, and supports streaming."
+    title="Configurable Gemini API Proxy",
+    description="A proxy that adds a configurable timestamp or UUID to the start or end of a prompt."
 )
 
 client = httpx.AsyncClient(base_url=UPSTREAM_GEMINI_ENDPOINT)
+
 
 @app.post("/{path:path}")
 async def proxy_gemini_request(path: str, request: Request):
@@ -35,7 +45,8 @@ async def proxy_gemini_request(path: str, request: Request):
     if not api_key:
         return JSONResponse(
             status_code=401,
-            content={"error": "API key not found. Provide it in 'Authorization: Bearer <key>' header or as '?key=<key>' URL parameter."}
+            content={
+                "error": "API key not found. Provide it in 'Authorization: Bearer <key>' header or as '?key=<key>' URL parameter."}
         )
 
     # 4. Get and modify the request body
@@ -45,27 +56,46 @@ async def proxy_gemini_request(path: str, request: Request):
         return JSONResponse(status_code=400, content={"error": "Invalid JSON body"})
 
     try:
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-        prefix_to_add = f"(Current time: {timestamp}. This is an automated prefix added by the proxy. Please disregard.)\n\n"
+        # --- Configurable Injection Logic ---
+        injection_text = ""
+        # A. Determine the content to inject based on INJECTION_MODE
+        if INJECTION_MODE == "UUID":
+            random_id = str(uuid.uuid4())[0:4]  # Shorten UUID to 4 characters
+            injection_text = f"(Random ID: {random_id}. This is an automated injection by the proxy. Please disregard.)"
+        else:  # Default to TIMESTAMP
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+            injection_text = f"(Current time: {timestamp}. This is an automated injection by the proxy. Please disregard.)"
+
         if "contents" in request_body and isinstance(request_body["contents"], list) and len(request_body["contents"]) > 0:
             last_content = request_body["contents"][-1]
             if "parts" in last_content and isinstance(last_content["parts"], list) and len(last_content["parts"]) > 0:
-                last_content["parts"][0]["text"] = prefix_to_add + last_content["parts"][0]["text"]
-                print(f"Successfully prefixed the request for path: {path}")
-    except (KeyError, IndexError, TypeError) as e:
-        print(f"Warning: Could not modify request body. Error: {e}. Forwarding original request.")
+                original_text = last_content["parts"][0]["text"]
 
-    # 5. Build the upstream request, ensuring original query parameters are preserved.
-    # --- THIS IS THE FIX ---
-    # Exclude headers that can cause issues when the body is modified.
-    # httpx will correctly recalculate Content-Length.
-    exclude_headers = ['host', 'authorization', 'content-length', 'content-encoding']
+                # B. Determine the position based on INJECTION_POSITION
+                if INJECTION_POSITION == "SUFFIX":
+                    # Append to the end
+                    last_content["parts"][0]["text"] = original_text + \
+                        "\n\n" + injection_text
+                else:
+                    # Prepend to the beginning (default)
+                    last_content["parts"][0]["text"] = injection_text + \
+                        "\n\n" + original_text
+
+                print(
+                    f"Successfully modified request for path: {path} (Mode: {INJECTION_MODE}, Position: {INJECTION_POSITION})")
+
+    except (KeyError, IndexError, TypeError) as e:
+        print(
+            f"Warning: Could not modify request body. Error: {e}. Forwarding original request.")
+
+    # 5. Build the upstream request
+    exclude_headers = ['host', 'authorization',
+                       'content-length', 'content-encoding']
     headers = {
         key: value for key, value in request.headers.items()
         if key.lower() not in exclude_headers
     }
-    
-    # Prepare upstream request parameters, ensuring our extracted API key is used.
+
     upstream_params = dict(request.query_params)
     upstream_params['key'] = api_key
 
@@ -89,6 +119,7 @@ async def proxy_gemini_request(path: str, request: Request):
     except httpx.RequestError as e:
         return JSONResponse(status_code=502, content={"error": f"Upstream request failed: {e}"})
 
+
 @app.get("/")
 def health_check():
-    return {"status": "ok", "message": "Gemini Compatible Proxy is running."}
+    return {"status": "ok", "message": "Configurable Gemini Proxy is running."}
