@@ -28,6 +28,7 @@ This small modification makes every request unique from the perspective of the G
 - **Configurable Prompt Uniqueness**: Injects either a timestamp or UUID into each request to prevent issues with duplicate prompts.
 - **Flexible Injection Position**: Choose to inject at the beginning (PREFIX) or end (SUFFIX) of your prompt.
 - **Multiple Injection Modes**: Support for timestamp injection (default) or UUID-based uniqueness.
+- **Dynamic Endpoint Routing**: Automatically routes requests to different upstream endpoints based on model type (pro vs non-pro models).
 - **Full API Compatibility**: Mirrors the Gemini API structure. You can use it as a drop-in replacement for the official API endpoint.
 - **Streaming Support**: Fully supports streaming responses for a real-time experience.
 - **Flexible Authentication**: Accepts the API key from either the `Authorization: Bearer <key>` header or the `?key=<key>` query parameter.
@@ -71,10 +72,12 @@ The proxy will now be running on `http://localhost:8000`. You can then make requ
     pip install -r requirements.txt
     ```
 
-4.  (Optional) Create a `.env` file in the same directory to configure the proxy behavior. If not provided, it defaults to the upstream endpoint `https://generativelanguage.googleapis.com` with SUFFIX injection of TIMESTAMP.
+4.  (Optional) Create a `.env` file in the same directory to configure the proxy behavior. If not provided, it defaults to the upstream endpoint `https://generativelanguage.googleapis.com` for both pro and non-pro models with SUFFIX injection of TIMESTAMP.
     ```
     # .env
-    UPSTREAM_GEMINI_ENDPOINT="https://generativelanguage.googleapis.com"
+    # Separate endpoints for pro and non-pro models
+    UPSTREAM_PRO_ENDPOINT="https://generativelanguage.googleapis.com"
+    UPSTREAM_NON_PRO_ENDPOINT="https://generativelanguage.googleapis.com"
     
     # Injection position: "SUFFIX" (default) or "PREFIX"
     INJECTION_POSITION=SUFFIX
@@ -117,13 +120,23 @@ The proxy will forward this request to Gemini with the added unique content (tim
 
 The proxy supports several environment variables to customize its behavior:
 
-- **`UPSTREAM_GEMINI_ENDPOINT`**: The upstream Gemini API endpoint (default: `https://generativelanguage.googleapis.com`)
+- **`UPSTREAM_PRO_ENDPOINT`**: The upstream Gemini API endpoint for pro models (default: `https://generativelanguage.googleapis.com`)
+- **`UPSTREAM_NON_PRO_ENDPOINT`**: The upstream Gemini API endpoint for non-pro models (default: `https://generativelanguage.googleapis.com`)
 - **`INJECTION_POSITION`**: Where to inject the unique content
   - `SUFFIX` (default): Append to the end of the prompt
   - `PREFIX`: Prepend to the beginning of the prompt
 - **`INJECTION_MODE`**: What type of unique content to inject
   - `TIMESTAMP` (default): High-precision timestamp
   - `UUID`: 4-character random UUID
+
+### Dynamic Endpoint Routing
+
+The proxy automatically routes requests to different upstream endpoints based on the model name in the request path:
+
+- **Pro Models**: Requests containing "pro" in the path (e.g., `/v1beta/models/gemini-pro:generateContent`) are routed to `UPSTREAM_PRO_ENDPOINT`
+- **Non-Pro Models**: All other requests are routed to `UPSTREAM_NON_PRO_ENDPOINT`
+
+This allows you to configure different upstream servers for different model types, which can be useful for load balancing, region-specific endpoints, or different API providers.
 
 ### Examples of Different Configurations
 

@@ -28,6 +28,7 @@
 - **可配置的提示唯一性**: 为每个请求注入时间戳或UUID，解决重复提示问题。
 - **灵活的注入位置**: 可选择在提示的开头（PREFIX）或结尾（SUFFIX）注入内容。
 - **多种注入模式**: 支持时间戳注入（默认）或基于UUID的唯一性。
+- **动态端点路由**: 根据模型类型（pro 模型 vs 非 pro 模型）自动将请求路由到不同的上游端点。
 - **完全 API 兼容**: 完美镜像 Gemini API 的接口结构，您可以将其作为官方 API 端点的直接替代品。
 - **支持流式响应**: 完全支持流式（Streaming）响应，提供实时交互体验。
 - **灵活的身份验证**: 同时支持从 `Authorization: Bearer <key>` 请求头和 `?key=<key>` URL参数中获取 API 密钥。
@@ -71,10 +72,12 @@
     pip install -r requirements.txt
     ```
 
-4.  （可选）在项目根目录下创建一个 `.env` 文件，用于配置代理行为。如果未提供，将使用默认的上游端点 `https://generativelanguage.googleapis.com`，采用 SUFFIX 注入 TIMESTAMP 的方式。
+4.  （可选）在项目根目录下创建一个 `.env` 文件，用于配置代理行为。如果未提供，将使用默认的上游端点 `https://generativelanguage.googleapis.com`（对于 pro 和非 pro 模型均使用相同端点），采用 SUFFIX 注入 TIMESTAMP 的方式。
     ```
     # .env
-    UPSTREAM_GEMINI_ENDPOINT="https://generativelanguage.googleapis.com"
+    # 为 pro 和非 pro 模型设置不同的端点
+    UPSTREAM_PRO_ENDPOINT="https://generativelanguage.googleapis.com"
+    UPSTREAM_NON_PRO_ENDPOINT="https://generativelanguage.googleapis.com"
     
     # 注入位置: "SUFFIX" (默认) 或 "PREFIX"
     INJECTION_POSITION=SUFFIX
@@ -117,13 +120,23 @@ curl http://localhost:8000/v1beta/models/gemini-pro:generateContent?key=你的AP
 
 代理支持多个环境变量来自定义其行为：
 
-- **`UPSTREAM_GEMINI_ENDPOINT`**: 上游 Gemini API 端点（默认：`https://generativelanguage.googleapis.com`）
+- **`UPSTREAM_PRO_ENDPOINT`**: pro 模型的上游 Gemini API 端点（默认：`https://generativelanguage.googleapis.com`）
+- **`UPSTREAM_NON_PRO_ENDPOINT`**: 非 pro 模型的上游 Gemini API 端点（默认：`https://generativelanguage.googleapis.com`）
 - **`INJECTION_POSITION`**: 唯一内容注入位置
   - `SUFFIX`（默认）：追加到提示末尾
   - `PREFIX`：添加到提示开头
 - **`INJECTION_MODE`**: 注入的唯一内容类型
   - `TIMESTAMP`（默认）：高精度时间戳
   - `UUID`：4位随机UUID
+
+### 动态端点路由
+
+代理会根据请求路径中的模型名称自动将请求路由到不同的上游端点：
+
+- **Pro 模型**: 路径中包含 "pro" 的请求（例如 `/v1beta/models/gemini-pro:generateContent`）会被路由到 `UPSTREAM_PRO_ENDPOINT`
+- **非 Pro 模型**: 所有其他请求会被路由到 `UPSTREAM_NON_PRO_ENDPOINT`
+
+这允许您为不同的模型类型配置不同的上游服务器，这对于负载均衡、特定区域端点或不同的 API 提供商非常有用。
 
 ### 不同配置的示例
 
