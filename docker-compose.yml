@@ -10,7 +10,8 @@ services:
     # --- Optional Configuration ---
     # environment:
       # Uncomment and set the variables below to change the default behavior.
-            # - UPSTREAM_GEMINI_ENDPOINT=https://generativelanguage.googleapis.com
+      # - UPSTREAM_PRO_ENDPOINT=https://generativelanguage.googleapis.com
+      # - UPSTREAM_NON_PRO_ENDPOINT=https://generativelanguage.googleapis.com
 
       # Determines where to inject the text.
       # Valid values: "SUFFIX" (default), "PREFIX"

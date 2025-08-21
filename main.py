@@ -10,10 +10,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # --- Configuration ---
-UPSTREAM_GEMINI_ENDPOINT = os.getenv(
-    "UPSTREAM_GEMINI_ENDPOINT", "https://generativelanguage.googleapis.com")
+# Set separate endpoints for pro and non-pro models
+UPSTREAM_PRO_ENDPOINT = os.getenv(
+    "UPSTREAM_PRO_ENDPOINT", "https://generativelanguage.googleapis.com"
+)
+UPSTREAM_NON_PRO_ENDPOINT = os.getenv(
+    "UPSTREAM_NON_PRO_ENDPOINT", "https://generativelanguage.googleapis.com"
+)
 
-# --- New Configuration Options ---
 # Determines where to inject the text: "PREFIX" or "SUFFIX"
 INJECTION_POSITION = os.getenv("INJECTION_POSITION", "SUFFIX").upper()
 # Determines what content to inject: "TIMESTAMP" or "UUID"
@@ -22,10 +26,11 @@ INJECTION_MODE = os.getenv("INJECTION_MODE", "TIMESTAMP").upper()
 
 app = FastAPI(
     title="Configurable Gemini API Proxy",
-    description="A proxy that adds a configurable timestamp or UUID to the start or end of a prompt."
+    description="A proxy that adds a configurable timestamp or UUID to the start or end of a prompt and routes to different model endpoints."
 )
 
-client = httpx.AsyncClient(base_url=UPSTREAM_GEMINI_ENDPOINT)
+# Initialize client without a base_url, as it will be determined per-request
+client = httpx.AsyncClient()
 
 
 @app.post("/{path:path}")
@@ -98,12 +103,24 @@ async def proxy_gemini_request(path: str, request: Request):
 
     upstream_params = dict(request.query_params)
     upstream_params['key'] = api_key
+    
+    # --- DYNAMIC ENDPOINT ROUTING LOGIC ---
+    # A. Determine which upstream endpoint to use based on the model name in the path
+    if "pro" in path:
+        target_endpoint = UPSTREAM_PRO_ENDPOINT
+    else:
+        target_endpoint = UPSTREAM_NON_PRO_ENDPOINT
+        
+    print(f"Routing request for '{path}' to endpoint: {target_endpoint}")
+
+    # B. Construct the full URL for the upstream request
+    full_upstream_url = f"{target_endpoint}/{path}"
 
     # 6. Forward the request and stream the response
     try:
         req = client.build_request(
             method="POST",
-            url=f"/{path}",
+            url=full_upstream_url, # Use the full URL constructed above
             params=upstream_params,
             json=request_body,
             headers=headers,
