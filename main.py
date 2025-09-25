@@ -36,22 +36,26 @@ client = httpx.AsyncClient()
 @app.post("/{path:path}")
 async def proxy_gemini_request(path: str, request: Request):
     api_key = None
+    # 1. (新增) 优先从 'x-goog-api-key' 请求头获取
+    api_key = request.headers.get("x-goog-api-key")
 
-    # 1. Prioritize Authorization header for API Key
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        api_key = auth_header.split(" ", 1)[1]
+    # 2. 其次尝试 'Authorization: Bearer <key>' 请求头
+    if not api_key:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            api_key = auth_header.split(" ", 1)[1]
 
-    # 2. Fallback to '?key=' query parameter
+    # 3. 最后回退到 '?key=' URL 查询参数
     if not api_key:
         api_key = request.query_params.get("key")
 
-    # 3. Return error if no key is found
+    # 4. 如果没有找到任何 key 则返回错误
     if not api_key:
         return JSONResponse(
             status_code=401,
             content={
-                "error": "API key not found. Provide it in 'Authorization: Bearer <key>' header or as '?key=<key>' URL parameter."}
+                "error": "API key not found. Provide it in 'x-goog-api-key' header, 'Authorization: Bearer <key>' header, or as '?key=<key>' URL parameter."
+            }
         )
 
     # 4. Get and modify the request body
